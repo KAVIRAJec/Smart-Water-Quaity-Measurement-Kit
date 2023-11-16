@@ -40,6 +40,15 @@ def convert_turbidity(raw_value):
     return turbidity
 ser = serial.Serial('/dev/ttyS0', baudrate=9600, timeout=1)  # Assuming your Nextion display is connected to the Raspberry Pi's GPIO serial port
 eof = b"\xff\xff\xff"
+
+api_url="http://10.10.220.68:3001/api"
+parameters={
+	'parameter': 'water',
+	'ph': ph_value,
+	'turbidity': turbidity_ntu,
+	'tds': tds_ppm,
+	'orp': orp_mV
+}
 try:
     while True:
         raw_value = ph_sensor.value # Assuming the sensor is connected to channel 0
@@ -62,7 +71,7 @@ try:
         command_turbidity = ('page0.t6.txt="' + "{:.2f}".format(turbidity_ntu) + '"').encode() + eof
         command_orp = ('page0.t7.txt="' + "{:.2f}".format(orp_mV) + '"').encode() + eof
         command_tds = ('page0.t8.txt="' + "{:.2f}".format(tds_ppm) + '"').encode() + eof
-        if orp_mV > 250 and turbidity_ntu<1:
+        if orp_mV > 250 and turbidity_ntu<=1:
             command = b'page0.t4.txt=Drinkable\xff\xff\xff'
         else:
             command = b'page0.t4.txt=Non-Drinkable\xff\xff\xff'
@@ -71,9 +80,16 @@ try:
         ser.write(command_orp)
         ser.write(command_tds)
         ser.write(command)
-
+	
         #ser.close()
         time.sleep(1)
+        
+        response = requests.get(api_url, params=parameters)
+        if response.status_code == 200:
+			print("Data uploaded successfully!")
+		else:
+			print(f"Error: {response.status_code}")
+        
 except Exception as e:
     print("Error: ", str(e))
 
